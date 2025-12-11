@@ -1,23 +1,25 @@
 
 /* ベース */
 :root {
-  --bg: #0f172a;          /* Slate-900 */
-  --card: #111827;        /* Gray-900 */
-  --text: #e5e7eb;        /* Gray-200 */
-  --muted: #94a3b8;       /* Slate-400 */
-  --accent: #22d3ee;      /* Cyan-400 */
-  --accent-hover: #06b6d4;/* Cyan-500 */
-  --focus: #f59e0b;       /* Amber-500 */
+  --bg: #ffffff;          /* 白背景 */
+  --card: #f8fafc;        /* カードの薄いグレー（Tailwindのslate-50相当） */
+  --text: #111827;        /* 文字は濃いグレー（ほぼ黒） */
+  --muted: #6b7280;       /* 補助テキスト */
+  --accent: #2563eb;      /* アクセント（ブルー） */
+  --accent-hover: #1d4ed8;
+  --focus: #f59e0b;       /* フォーカスはそのまま */
 }
+
 
 * { box-sizing: border-box; }
 html, body { height: 100%; }
 body {
   margin: 0;
-  background: linear-gradient(120deg, #0b1020, var(--bg));
+  background: var(--bg);  /* グラデーションをやめて白に */
   color: var(--text);
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", "Noto Sans JP", Arial, "Hiragino Kaku Gothic ProN", "Meiryo", sans-serif;
 }
+
 
 /* ヘッダー／フッター */
 .site-header, .site-footer {
