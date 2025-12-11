@@ -1,22 +1,49 @@
 
-!doctype html
-html lang=ja
-head
-  meta charset=utf-8 
-  meta name=viewport content=width=device-width, initial-scale=1 
-  titleカード登録title
-  assetscssstyles.css
-head
-body
-  header class=site-header role=banner
-    h1 class=site-titleカード登録h1
-  header
-  main id=main class=container role=main
-    pここにカード登録フォームを実装していきます。p
-    pindex.htmlメニューに戻るap
-  main
-  footer class=site-footer role=contentinfo
-    small&copy; 2025small
-  footer
-body
-html
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>カード登録</title>
+  assets/css/styles.css
+</head>
+<body>
+  <header class="site-header" role="banner">
+    <h1 class="site-title">カード登録</h1>
+  </header>
+
+  <main id="main" class="container" role="main">
+    <!-- 後で本格的なフォームに差し替えます -->
+    <section aria-labelledby="card-form-title">
+      <h2 id="card-form-title" style="margin-top:0;">カード情報の入力</h2>
+
+      #
+        <div style="display:grid; gap:1rem; max-width:560px;">
+          <label>
+            カード名
+            <input type="text" name="card_name" required placeholder="例：メンバーズカード" />
+          </label>
+
+          <label>
+            カード番号
+            <input type="text" name="card_number" inputmode="numeric" placeholder="例：1234-5678" />
+          </label>
+
+          <label>
+            メモ（任意）
+            <textarea name="note" rows="3" placeholder="補足情報を記入"></textarea>
+          </label>
+
+          <div style="display:flex; gap:.75rem;">
+            <button type="submit" class="menu-button" style="min-height:44px;">登録する</button>
+            index.htmlメニューに戻る</a>
+          </div>
+        </div>
+      </form>
+    </section>
+  </main>
+
+  <footer class="site-footer" role="contentinfo">
+    <small>&copy; 2025</small>
+  </footer>
+</body>
