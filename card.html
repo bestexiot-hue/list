@@ -5,7 +5,8 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>カード登録</title>
-  ./assets/css/styles.css
+  <link rel="stylesheet" href="./assets/css/styles.css">
+  
   <style>
     /* ライト背景に合わせた最低限の補助スタイル */
     .form-row { display: grid; gap: .5rem; max-width: 640px; margin-bottom: 1rem; }
@@ -234,51 +235,51 @@
   /* ===== 一覧表示（album.html にも流用可能） ===== */
   async function renderList() {
     const containerId = 'card-list';
-    let container = document.getElementById(containerId);
-    if (!container) {
-      container = document.createElement('div');
-      container.id = containerId;
-      container.style.marginTop = '1rem';
-      document.getElementById('main').appendChild(container);
+    let section = document.getElementById(containerId);
+    if (!section) {
+      section = document.createElement('section');
+      section.id = containerId;
+      section.className = 'cards-section';
+      document.getElementById('main').appendChild(section);
     }
-    container.innerHTML = '<h2>保存済みカード</h2>';
+
+    // ヘッダー（中央寄せ）
+    section.innerHTML = `
+      <h2 style="text-align:center; margin:0 0 .75rem;">保存済みカード</h2>
+    `;
 
     const cards = await listCards();
     if (!cards.length) {
-      container.innerHTML += '<p>まだ保存されたカードはありません。</p>';
+      section.innerHTML += `
+        <p style="text-align:center; color:#6b7280;">まだ保存されたカードはありません。</p>
+      `;
       return;
     }
-    const ul = document.createElement('ul');
-    ul.style.listStyle = 'none';
-    ul.style.padding = 0;
-    ul.style.display = 'grid';
-    ul.style.gap = '0.75rem';
-    ul.style.gridTemplateColumns = 'repeat(auto-fit, minmax(240px, 1fr))';
+
+    const grid = document.createElement('div');
+    grid.className = 'cards-grid';
 
     for (const c of cards) {
-      const li = document.createElement('li');
-      li.style.border = '1px solid #e5e7eb';
-      li.style.borderRadius = '8px';
-      li.style.padding = '0.75rem';
-
       const imgURL = URL.createObjectURL(c.imageBlob);
-      li.innerHTML = `
-        <div style="display:flex; gap:.75rem; align-items:flex-start;">
-          <img src="${imgURL}" alt="${c.name}" style="width:120px; height:90px; object-fit:contain; border:1px solid #e5e7ebsize:.9rem;">${c.filename} / ${c.mime}</div>
-            <div style="color:#6b7280; font-size:.8rem;">${c.createdAt}</div>
-            <div style="margin-top:.5rem; display:flex; gap:.5rem;">
-              <button data-id="${c.id}" class="btn-del">削除</button>
-              ${imgURL}画像DL</a>
-            </div>
-          </div>
+      const item = document.createElement('article');
+      item.className = 'card-item';
+      item.innerHTML = `
+        ${imgURL}
+        <div class="card-name">${c.name}</div>
+        <div class="card-meta">${c.filename} / ${c.mime}</div>
+        <div class="card-meta">${c.createdAt}</div>
+        <div class="card-actions">
+          <button data-id="${c.id}" class="btn-del">削除</button>
+          ${imgURL}画像DL</a>
         </div>
       `;
-      ul.appendChild(li);
+      grid.appendChild(item);
     }
-    container.appendChild(ul);
 
-    // 削除ボタンのイベント
-    container.querySelectorAll('.btn-del').forEach(btn => {
+    section.appendChild(grid);
+
+    // 削除ボタン
+    section.querySelectorAll('.btn-del').forEach(btn => {
       btn.addEventListener('click', async () => {
         const id = Number(btn.getAttribute('data-id'));
         await deleteCard(id);
