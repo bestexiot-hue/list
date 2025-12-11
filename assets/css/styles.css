@@ -1,0 +1,104 @@
+
+/* ベース */
+:root {
+  --bg: #0f172a;          /* Slate-900 */
+  --card: #111827;        /* Gray-900 */
+  --text: #e5e7eb;        /* Gray-200 */
+  --muted: #94a3b8;       /* Slate-400 */
+  --accent: #22d3ee;      /* Cyan-400 */
+  --accent-hover: #06b6d4;/* Cyan-500 */
+  --focus: #f59e0b;       /* Amber-500 */
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0;
+  background: linear-gradient(120deg, #0b1020, var(--bg));
+  color: var(--text);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", "Noto Sans JP", Arial, "Hiragino Kaku Gothic ProN", "Meiryo", sans-serif;
+}
+
+/* ヘッダー／フッター */
+.site-header, .site-footer {
+  padding: 1rem 1.5rem;
+}
+.site-title {
+  margin: 0;
+  font-size: clamp(1.4rem, 2.5vw, 2rem);
+  letter-spacing: 0.02em;
+}
+
+/* コンテナ */
+.container {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem 3rem;
+}
+
+/* メニュー */
+.menu-list {
+  list-style: none;
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  padding: 0;
+  margin: 2rem 0;
+}
+
+.menu-item {
+  display: flex;
+}
+
+.menu-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 64px;
+  padding: 1rem 1.25rem;
+  border-radius: 12px;
+  color: var(--text);
+  text-decoration: none;
+  background:
+    radial-gradient(120% 180% at 10% 10%, rgba(34, 211, 238, 0.08), transparent 40%),
+    linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02));
+  border: 1px solid rgba(255,255,255,0.08);
+  backdrop-filter: blur(6px);
+  transition:
+    transform 160ms ease,
+    box-shadow 160ms ease,
+    border-color 160ms ease,
+    background-color 160ms ease;
+  box-shadow:
+    0 6px 18px rgba(0,0,0,0.30),
+    inset 0 1px 0 rgba(255,255,255,0.06);
+}
+
+.menu-button:hover {
+  transform: translateY(-1px);
+  box-shadow:
+    0 10px 26px rgba(0,0,0,0.35),
+    inset 0 1px 0 rgba(255,255,255,0.1);
+  border-color: rgba(34,211,238,0.35);
+  background-color: rgba(34,211,238,0.06);
+}
+
+.menu-button:active {
+  transform: translateY(0);
+}
+
+.menu-button:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 3px;
+}
+
+/* フッター */
+.site-footer small {
+  color: var(--muted);
+}
+
+/* ダーク背景でも読みやすいリンクフォーカス */
+a:focus {
+  outline: none;
+}
