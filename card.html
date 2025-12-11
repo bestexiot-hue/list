@@ -5,7 +5,20 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>カード登録</title>
-  assets/css/styles.css
+  ./assets/css/styles.css
+  <style>
+    /* ライト背景に合わせた最低限の補助スタイル */
+    .form-row { display: grid; gap: .5rem; max-width: 640px; margin-bottom: 1rem; }
+    .actions  { display: flex; gap: .75rem; }
+    .preview  { max-width: 320px; max-height: 240px; border: 1px solid #e5e7eb; border-radius: 8px; object-fit: contain; background: #fff; }
+    label > span { font-weight: 600; }
+    input[type="text"], input[type="file"], textarea {
+      padding: .5rem .75rem; border: 1px solid #cbd5e1; border-radius: 8px; width: 100%;
+    }
+    .status { margin-top: 1rem; color: #1f2937; }
+    .error  { color: #b91c1c; }
+    .success{ color: #166534; }
+  </style>
 </head>
 <body>
   <header class="site-header" role="banner">
@@ -13,37 +26,270 @@
   </header>
 
   <main id="main" class="container" role="main">
-    <!-- 後で本格的なフォームに差し替えます -->
-    <section aria-labelledby="card-form-title">
-      <h2 id="card-form-title" style="margin-top:0;">カード情報の入力</h2>
+    <form id="cardForm" novalidate>
+      <div class="form-row">
+        <label for="cardName">
+          <span>カード名 <sup style="color:#b91c1c;">*</sup></span>
+        </label>
+        <input type="text" id="cardName" name="card_name" required placeholder="例：メンバーズカード" />
+      </div>
 
-      #
-        <div style="display:grid; gap:1rem; max-width:560px;">
-          <label>
-            カード名
-            <input type="text" name="card_name" required placeholder="例：メンバーズカード" />
-          </label>
+      <div class="form-row">
+        <label for="cardImage">
+          <span>カード画像（JPEG/PNG）<sup style="color:#b91c1c;">*</sup></span>
+        </label>
+        <input type="file" id="cardImage" name="card_image" accept="image/*" required />
+        <img id="preview" class="preview" alt="画像プレビュー" />
+      </div>
 
-          <label>
-            カード番号
-            <input type="text" name="card_number" inputmode="numeric" placeholder="例：1234-5678" />
-          </label>
+      <div class="actions">
+        <button type="submit" class="menu-button" style="min-height:44px;">登録する</button>
+        ./index.htmlメニューに戻る</a>
+      </div>
 
-          <label>
-            メモ（任意）
-            <textarea name="note" rows="3" placeholder="補足情報を記入"></textarea>
-          </label>
-
-          <div style="display:flex; gap:.75rem;">
-            <button type="submit" class="menu-button" style="min-height:44px;">登録する</button>
-            index.htmlメニューに戻る</a>
-          </div>
-        </div>
-      </form>
-    </section>
+      <div id="status" class="status" role="status" aria-live="polite"></div>
+    </form>
   </main>
 
   <footer class="site-footer" role="contentinfo">
     <small>&copy; 2025</small>
   </footer>
+
+  <script>
+    // プレビュー
+    const imgInput = document.getElementById('cardImage');
+    const preview  = document.getElementById('preview');
+    imgInput.addEventListener('change', () => {
+      const file = imgInput.files[0];
+      if (file) {
+        preview.src = URL.createObjectURL(file);
+      } else {
+        preview.removeAttribute('src');
+      }
+    });
+
+    // 画像→Base64
+    const fileToBase64 = (file) => new Promise((resolve, reject) => {
+      const r = new FileReader();
+      r.onload = () => resolve(r.result.split(',')[1]); // "data:...;base64,XXXX" → "XXXX"
+      r.onerror = reject;
+      r.readAsDataURL(file);
+    });
+
+    // 送信処理（サーバレス関数にPOST）
+    const form   = document.getElementById('cardForm');
+    const status = document.getElementById('status');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      status.className = 'status'; status.textContent = '';
+
+      const name = document.getElementById('cardName').value.trim();
+      const file = imgInput.files[0];
+
+      if (!name || !file) {
+        status.classList.add('error');
+        status.textContent = 'カード名と画像は必須です。';
+        return;
+      }
+
+      try {
+        const base64 = await fileToBase64(file);
+        const payload = {
+          name,
+          filename: file.name,
+          mime: file.type || 'image/jpeg',
+          imageBase64: base64
+        };
+
+        // ▼ ここをあなたのサーバレス関数のURLに置き換えます
+        const endpoint = 'https://<YOUR-WORKER-DOMAIN>/register-card';
+
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        if (!res.ok) {
+          const t = await res.text();
+          throw new Error(`アップロード失敗: ${t}`);
+        }
+
+        const data = await res.json();
+        if (data.ok) {
+          status.classList.add('success');
+          status.textContent = `登録しました。画像URL: ${data.url}`;
+          // 必要ならフォームをリセット
+          form.reset();
+          preview.removeAttribute('src');
+        } else {
+          throw new Error(data.error || '不明なエラー');
+        }
+      } catch (err) {
+        console.error(err);
+        status.classList.add('error');
+        status.textContent = `エラー: ${err.message}`;
+      }
+    });
+
+    
+  <!-- 既存の card.html に追記して使えます -->
+  /* ===== IndexedDB にカード名＋画像を保存するユーティリティ ===== */
+  const DB_NAME = 'cards-db';
+  const STORE_NAME = 'cards';
+
+  function openDB() {
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.open(DB_NAME, 1);
+      req.onupgradeneeded = (e) => {
+        const db = req.result;
+        if (!db.objectStoreNames.contains(STORE_NAME)) {
+          const store = db.createObjectStore(STORE_NAME, { keyPath: 'id', autoIncrement: true });
+          store.createIndex('byName', 'name', { unique: false });
+        }
+      };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  async function saveCard(name, file) {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_NAME, 'readwrite');
+      const store = tx.objectStore(STORE_NAME);
+      const record = {
+        name,
+        filename: file.name,
+        mime: file.type || 'image/jpeg',
+        imageBlob: file,               // Blobのまま保存
+        createdAt: new Date().toISOString()
+      };
+      const req = store.add(record);
+      req.onsuccess = () => resolve(req.result);  // id が返る
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  async function listCards() {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_NAME, 'readonly');
+      const store = tx.objectStore(STORE_NAME);
+      const req = store.getAll();
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  async function deleteCard(id) {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_NAME, 'readwrite');
+      const store = tx.objectStore(STORE_NAME);
+      const req = store.delete(id);
+      req.onsuccess = () => resolve();
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  /* ===== UIとの接続（既存フォームに合わせて） ===== */
+  const form   = document.getElementById('cardForm');
+  const nameEl = document.getElementById('cardName');
+  const imgEl  = document.getElementById('cardImage');
+  const status = document.getElementById('status');
+  const preview= document.getElementById('preview');
+
+  imgEl.addEventListener('change', () => {
+    const f = imgEl.files[0];
+    if (f) preview.src = URL.createObjectURL(f);
+    else preview.removeAttribute('src');
+  });
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    status.className = 'status'; status.textContent = '';
+    const name = nameEl.value.trim();
+    const file = imgEl.files[0];
+
+    if (!name || !file) {
+      status.classList.add('error'); status.textContent = 'カード名と画像は必須です。';
+      return;
+    }
+    try {
+      const id = await saveCard(name, file);
+      status.classList.add('success');
+      status.textContent = `保存しました（ID: ${id}）。`;
+      form.reset();
+      preview.removeAttribute('src');
+      renderList();  // 保存後に一覧更新
+    } catch (err) {
+      console.error(err);
+      status.classList.add('error');
+      status.textContent = `保存エラー: ${err.message}`;
+    }
+  });
+
+  /* ===== 一覧表示（album.html にも流用可能） ===== */
+  async function renderList() {
+    const containerId = 'card-list';
+    let container = document.getElementById(containerId);
+    if (!container) {
+      container = document.createElement('div');
+      container.id = containerId;
+      container.style.marginTop = '1rem';
+      document.getElementById('main').appendChild(container);
+    }
+    container.innerHTML = '<h2>保存済みカード</h2>';
+
+    const cards = await listCards();
+    if (!cards.length) {
+      container.innerHTML += '<p>まだ保存されたカードはありません。</p>';
+      return;
+    }
+    const ul = document.createElement('ul');
+    ul.style.listStyle = 'none';
+    ul.style.padding = 0;
+    ul.style.display = 'grid';
+    ul.style.gap = '0.75rem';
+    ul.style.gridTemplateColumns = 'repeat(auto-fit, minmax(240px, 1fr))';
+
+    for (const c of cards) {
+      const li = document.createElement('li');
+      li.style.border = '1px solid #e5e7eb';
+      li.style.borderRadius = '8px';
+      li.style.padding = '0.75rem';
+
+      const imgURL = URL.createObjectURL(c.imageBlob);
+      li.innerHTML = `
+        <div style="display:flex; gap:.75rem; align-items:flex-start;">
+          <img src="${imgURL}" alt="${c.name}" style="width:120px; height:90px; object-fit:contain; border:1px solid #e5e7ebsize:.9rem;">${c.filename} / ${c.mime}</div>
+            <div style="color:#6b7280; font-size:.8rem;">${c.createdAt}</div>
+            <div style="margin-top:.5rem; display:flex; gap:.5rem;">
+              <button data-id="${c.id}" class="btn-del">削除</button>
+              ${imgURL}画像DL</a>
+            </div>
+          </div>
+        </div>
+      `;
+      ul.appendChild(li);
+    }
+    container.appendChild(ul);
+
+    // 削除ボタンのイベント
+    container.querySelectorAll('.btn-del').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const id = Number(btn.getAttribute('data-id'));
+        await deleteCard(id);
+        renderList();
+      });
+    });
+  }
+
+  // 初期表示
+  renderList();
+</script>
+  
 </body>
+</html>
