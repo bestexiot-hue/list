@@ -184,9 +184,7 @@
           <div style="color:#6b7280; font-size:.9rem;">${cardRecord.filename} / ${cardRecord.mime}</div>
           <div style="color:#6b7280; font-size:.85rem; margin-top:.25rem;">${cardRecord.createdAt}</div>
           <div style="margin-top:.5rem; display:flex; gap:.5rem;">
-            ${imgURL}
-               画像をダウンロード
-            </a>
+            <a href="${imgURL} ">画像をダウンロード</a>
           </div>
         </div>
       `;
@@ -222,7 +220,7 @@
             <div style="color:#6b7280; font-size:.8rem;">${c.createdAt}</div>
             <div class="card-actions">
               <button data-id="${c.id}" class="btn-del">削除</button>
-              ${imgURL}画像DL</a>
+              <a href="${imgURL}">画像DL</a>
             </div>
           </div>
         `;
