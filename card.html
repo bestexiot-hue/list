@@ -50,15 +50,19 @@
   <footer class="site-footer"><small>© 2025</small></footer>
 
 
+
 <script>
   const LS_KEYS = { cards: 'cards' };
 
-  // --- Storage helpers (throwしない設計) ---
+  // --- Storage helpers（常に配列で返す） ---
   function safeParse(json, fallback) {
     try { return JSON.parse(json); } catch { return fallback; }
   }
   function getCardsRaw() {
-    return safeParse(localStorage.getItem(LS_KEYS.cards), []);
+    const v = localStorage.getItem(LS_KEYS.cards);
+    if (v === null || v === undefined) return [];          // 未設定は空配列
+    const parsed = safeParse(v, []);
+    return Array.isArray(parsed) ? parsed : [];            // 壊れた値は空配列に正規化
   }
   function setCards(cards) {
     try {
@@ -70,31 +74,29 @@
     }
   }
 
-  // 旧形式（string[]）→ 新形式（object[]）
+  // --- 旧形式（string[]）→ 新形式（object[]）への移行 ---
   function migrateCardsIfNeeded() {
-    const raw = getCardsRaw();
+    const raw = getCardsRaw();                             // ここで必ず配列
     if (raw.length && typeof raw[0] === 'string') {
       const migrated = raw.map(name => ({
         id: makeId(), name, image: null, createdAt: Date.now()
       }));
       if (setCards(migrated)) return migrated;
-      // 失敗したら旧形式をそのまま返す（後段でフォールバック変換）
-      return raw;
+      // 書き戻しに失敗しても、後段で正規化して使えるように migrated を返す
+      return migrated;
     }
-    return raw;
+    return raw;                                           // すでに新形式 or 空配列
   }
   function getCards() { return migrateCardsIfNeeded(); }
 
   // --- Utils ---
   function makeId() { return 'c_' + Math.random().toString(36).slice(2) + Date.now().toString(36); }
 
+  // 画像圧縮（失敗時は null を返す）
   function fileToCompressedDataURL(file, maxSide = 800, quality = 0.8) {
     return new Promise((resolve) => {
       if (!file) return resolve(null);
-      if (!/^image\/(png|jpeg)$/.test(file.type)) {
-        alert('PNG/JPEG の画像を選択してください');
-        return resolve(null);
-      }
+      if (!/^image\/(png|jpeg)$/.test(file.type)) { alert('PNG/JPEG の画像を選択してください'); return resolve(null); }
       const reader = new FileReader();
       reader.onload = () => {
         const img = new Image();
@@ -110,10 +112,7 @@
             ctx.drawImage(img, 0, 0, w, h);
             const dataURL = canvas.toDataURL('image/jpeg', quality);
             resolve(dataURL);
-          } catch (e) {
-            console.warn('画像圧縮に失敗:', e);
-            resolve(null);
-          }
+          } catch (e) { console.warn('画像圧縮に失敗:', e); resolve(null); }
         };
         img.onerror = () => resolve(null);
         img.src = reader.result;
@@ -123,25 +122,29 @@
     });
   }
 
-  // --- Renderers ---
+  // --- Renderers（必ず配列→オブジェクト配列へ正規化） ---
+  function normalizeCards(cards) {
+    if (!Array.isArray(cards)) return [];
+    if (cards.length && typeof cards[0] === 'string') {
+      return cards.map(n => ({ id: makeId(), name: n, image: null, createdAt: Date.now() }));
+    }
+    return cards;
+  }
+
   function renderCards() {
-    const cards = getCards();
+    const cards = normalizeCards(getCards());
     const recent = document.getElementById('recentCards');
     const saved = document.getElementById('savedCards');
     recent.innerHTML = ''; saved.innerHTML = '';
 
-    const list = Array.isArray(cards) && typeof cards[0] === 'string'
-      ? cards.map(n => ({ id: makeId(), name: n, image: null, createdAt: Date.now() }))
-      : cards;
-
-    [...list].sort((a,b)=>b.createdAt-a.createdAt).slice(0,5).forEach(card => {
+    [...cards].sort((a,b)=>b.createdAt-a.createdAt).slice(0,5).forEach(card => {
       const li = document.createElement('li'); li.className = 'menu-item row';
       if (card.image) { const img = document.createElement('img'); img.className = 'thumb'; img.src = card.image; img.alt = card.name; li.appendChild(img); }
       const span = document.createElement('span'); span.textContent = card.name; li.appendChild(span);
       recent.appendChild(li);
     });
 
-    list.forEach(card => {
+    cards.forEach(card => {
       const li = document.createElement('li'); li.className = 'menu-item row';
       if (card.image) { const img = document.createElement('img'); img.className = 'thumb'; img.src = card.image; img.alt = card.name; li.appendChild(img); }
       const span = document.createElement('span'); span.textContent = card.name; li.appendChild(span);
@@ -167,19 +170,14 @@
   // --- Submit ---
   document.getElementById('cardForm').addEventListener('submit', async (e) => {
     e.preventDefault();
-    console.log('[card] submit fired'); // 発火確認
+    console.log('[card] submit fired');
     const name = document.getElementById('cardName').value.trim();
     const file = document.getElementById('cardImage').files?.[0] || null;
     if (!name) { alert('カード名を入力してください'); return; }
 
-    let cards = getCards();
-    // 旧形式フォールバック
-    if (Array.isArray(cards) && typeof cards[0] === 'string') {
-      cards = cards.map(n => ({ id: makeId(), name: n, image: null, createdAt: Date.now() }));
-    }
+    let cards = normalizeCards(getCards());
     if (cards.some(c => c.name === name)) { alert('同じカード名が既に存在します'); return; }
 
-    // 画像が失敗しても名前だけは保存
     const imageDataURL = await fileToCompressedDataURL(file, 800, 0.8); // null可
     const newCard = { id: makeId(), name, image: imageDataURL, createdAt: Date.now() };
     cards.push(newCard);
@@ -201,10 +199,6 @@
     renderCards();
     alert('カードを登録しました');
   });
-
-  // 初期表示
-  renderCards();
-
 
     // 初期表示
     renderCards();
