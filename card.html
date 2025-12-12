@@ -3,290 +3,196 @@
 <html lang="ja">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>カード登録</title>
   <link rel="stylesheet" href="./assets/css/styles.css">
   <style>
-    /* --- ページ内補助スタイル（最低限） --- */
-    .form-row { display: grid; gap: .5rem; max-width: 640px; margin-bottom: 1rem; }
-    .actions  { display: flex; gap: .75rem; }
-    .preview  { max-width: 320px; max-height: 240px; border: 1px solid #e5e7eb; border-radius: 8px; object-fit: contain; background: #fff; }
-    label > span { font-weight: 600; }
-    input[type="text"], input[type="file"], textarea {
-      padding: .5rem .75rem; border: 1px solid #cbd5e1; border-radius: 8px; width: 100%;
-    }
-    .status { margin-top: 1rem; color: #1f2937; }
-    .error  { color: #b91c1c; }
-    .success{ color: #166534; }
-
-    /* 直近カード表示用 */
-    #recent-card-content img {
-      width: 220px; height: 155px; object-fit: contain;
-      border: 1px solid #e5e7eb; border-radius: 8px; background: #fff;
-    }
-
-    /* 保存済み一覧（任意） */
-    .cards-section { margin-top: 2rem; }
-    .cards-grid {
-      display: grid; gap: 1rem;
-      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-    }
-    .card-item {
-      border: 1px solid #e5e7eb; border-radius: 12px; background: #fff;
-      padding: 0.75rem; display: flex; gap: .75rem;
-      box-shadow: 0 4px 14px rgba(0,0,0,0.06);
-    }
-    .card-item img {
-      width: 200px; height: 140px; object-fit: contain;
-      border: 1px solid #e5e7eb; border-radius: 8px; background: #fff;
-    }
-    .card-actions { margin-top: .5rem; display: flex; gap: .5rem; }
-    .card-actions .btn-del, .card-actions .btn-dl {
-      appearance: none; border: 1px solid #cbd5e1; background: #f8fafc; color: #111827;
-      border-radius: 8px; padding: .35rem .6rem; cursor: pointer; text-decoration: none;
-    }
-    .card-actions .btn-del:hover, .card-actions .btn-dl:hover {
-      background: #eef2ff; border-color: #94a3b8;
-    }
+    .thumb { width: 64px; height: 64px; object-fit: cover; border-radius: 8px; }
+    .row { display:flex; align-items:center; gap:0.75rem; }
+    .card-box { background: var(--card); padding:1rem; border-radius:12px; }
   </style>
 </head>
 <body>
-  <header class="site-header" role="banner">
+  <header class="site-header">
     <h1 class="site-title">カード登録</h1>
+    <nav><a href="./index.html">メニューに戻る</a></nav>
   </header>
 
-  <main id="main" class="container" role="main">
-    <!-- 入力フォーム -->
-    <form id="cardForm" novalidate>
-      <div class="form-row">
-        <label for="cardName"><span>カード名 <sup style="color:#b91c1c;">*</sup></span></label>
-        <input type="text" id="cardName" name="card_name" required placeholder="例：メンバーズカード" />
-      </div>
+  <main class="container">
+    <section class="card-box">
+      <h2>カード登録フォーム</h2>
+      <form id="cardForm">
+        <label>
+          カード名 <span aria-hidden="true">*</span><br />
+          <input type="text" id="cardName" required placeholder="カード名" />
+        </label>
+        <br /><br />
+        <label>
+          カード画像（JPEG/PNG・任意）<br />
+          <input type="file" id="cardImage" accept="image/png,image/jpeg" />
+        </label>
 
-      <div class="form-row">
-        <label for="cardImage"><span>カード画像（JPEG/PNG）<sup style="color:#b91c1c;">*</sup></span></label>
-        <input type="file" id="cardImage" name="card_image" accept="image/*" required />
-        <img id="preview" class="preview" alt="画像プレビュー" />
-      </div>
+        <div id="imagePreview" style="margin-top:0.75rem;"></div>
 
-      <div class="actions">
-        <button type="submit" class="menu-button" style="min-height:44px;">登録する</button>
-        <a href="./index.html">メニューに戻る</a>
-      </div>
-
-      <div id="status" class="status" role="status" aria-live="polite"></div>
-    </form>
-
-    <!-- ① 直近の登録カード表示コンテナ（新規追加） -->
-    <section id="recent-card" aria-labelledby="recent-card-title" style="margin-top:1.25rem;">
-      <h2 id="recent-card-title" style="margin:0 0 .5rem;">直近の登録カード</h2>
-      <div id="recent-card-content" style="display:flex; align-items:flex-start; gap:.75rem;">
-        <p style="color:#6b7280;">まだ表示できるカードはありません。</p>
-      </div>
+        <br />
+        <button type="submit" class="menu-button">登録する</button>
+      </form>
+      <p style="color:var(--muted)">※ 画像は保存前に長辺 800px・JPEG 品質 0.8 へ圧縮します。</p>
     </section>
 
-    <!-- （任意）保存済みカード一覧 -->
-    <section id="card-list" class="cards-section" aria-labelledby="cards-title">
-      <h2 id="cards-title" style="margin:0 0 .75rem;">保存済みカード一覧</h2>
-      <div class="cards-grid" id="cards-grid"></div>
-      <p id="cards-empty" style="color:#6b7280; display:none;">まだ保存されたカードはありません。</p>
+    <section>
+      <h3>直近の登録カード</h3>
+      <ul id="recentCards" class="menu-list"></ul>
+
+      <h3>保存済みカード一覧</h3>
+      <ul id="savedCards" class="menu-list"></ul>
     </section>
   </main>
 
-  <footer class="site-footer" role="contentinfo">
-    <small>&copy; 2025</small>
-  </footer>
+  <footer class="site-footer"><small>© 2025</small></footer>
 
-  <!-- ② ③ を含むスクリプト：IndexedDB保存＋直近描画＋一覧 -->
   <script>
-    /* ===== IndexedDB ユーティリティ ===== */
-    const DB_NAME = 'cards-db';
-    const STORE_NAME = 'cards';
+    const LS_KEYS = { cards: 'cards' };
 
-    function openDB() {
-      return new Promise((resolve, reject) => {
-        const req = indexedDB.open(DB_NAME, 1);
-        req.onupgradeneeded = () => {
-          const db = req.result;
-          if (!db.objectStoreNames.contains(STORE_NAME)) {
-            const store = db.createObjectStore(STORE_NAME, { keyPath: 'id', autoIncrement: true });
-            store.createIndex('byName', 'name', { unique: false });
-          }
-        };
-        req.onsuccess = () => resolve(req.result);
-        req.onerror = () => reject(req.error);
-      });
+    // ---- Storage helpers ----
+    function getCardsRaw() {
+      try { return JSON.parse(localStorage.getItem(LS_KEYS.cards)) || []; }
+      catch { return []; }
+    }
+    function setCards(cards) {
+      localStorage.setItem(LS_KEYS.cards, JSON.stringify(cards));
     }
 
-    async function saveCard(name, file) {
-      const db = await openDB();
-      return new Promise((resolve, reject) => {
-        const tx = db.transaction(STORE_NAME, 'readwrite');
-        const store = tx.objectStore(STORE_NAME);
-        const record = {
-          name,
-          filename: file.name,
-          mime: file.type || 'image/jpeg',
-          imageBlob: file,               // Blobのまま保存（劣化なし）
-          createdAt: new Date().toISOString()
-        };
-        const req = store.add(record);
-        req.onsuccess = () => resolve(req.result);  // id が返る
-        req.onerror = () => reject(req.error);
-      });
-    }
-
-    async function listCards() {
-      const db = await openDB();
-      return new Promise((resolve, reject) => {
-        const tx = db.transaction(STORE_NAME, 'readonly');
-        const store = tx.objectStore(STORE_NAME);
-        const req = store.getAll();
-        req.onsuccess = () => resolve(req.result);
-        req.onerror = () => reject(req.error);
-      });
-    }
-
-    async function deleteCard(id) {
-      const db = await openDB();
-      return new Promise((resolve, reject) => {
-        const tx = db.transaction(STORE_NAME, 'readwrite');
-        const store = tx.objectStore(STORE_NAME);
-        const req = store.delete(id);
-        req.onsuccess = () => resolve();
-        req.onerror = () => reject(req.error);
-      });
-    }
-
-    /* ===== ② id指定で取得 ＆ 直近表示（新規追加） ===== */
-    async function getCardById(id) {
-      const db = await openDB();
-      return new Promise((resolve, reject) => {
-        const tx = db.transaction(STORE_NAME, 'readonly');
-        const store = tx.objectStore(STORE_NAME);
-        const req = store.get(id);
-        req.onsuccess = () => resolve(req.result);
-        req.onerror = () => reject(req.error);
-      });
-    }
-
-    function renderRecentCard(cardRecord) {
-      const wrap = document.getElementById('recent-card-content');
-      if (!wrap || !cardRecord) return;
-
-      // BlobをURLへ（必要に応じて revoke も可能）
-      const imgURL = URL.createObjectURL(cardRecord.imageBlob);
-
-      wrap.innerHTML = `
-        ${imgURL}
-        <div>
-          <div style="font-weight:600; color:#111827; font-size:1rem;">${cardRecord.name}</div>
-          <div style="color:#6b7280; font-size:.9rem;">${cardRecord.filename} / ${cardRecord.mime}</div>
-          <div style="color:#6b7280; font-size:.85rem; margin-top:.25rem;">${cardRecord.createdAt}</div>
-          <div style="margin-top:.5rem; display:flex; gap:.5rem;">
-            <a href="${imgURL} ">画像をダウンロード</a>
-          </div>
-        </div>
-      `;
-
-      // 表示位置までスクロール（任意）
-      document.getElementById('recent-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-
-    /* ===== 保存済み一覧（任意） ===== */
-    async function renderList() {
-      const grid = document.getElementById('cards-grid');
-      const empty = document.getElementById('cards-empty');
-      grid.innerHTML = '';
-      empty.style.display = 'none';
-
-      let cards = await listCards();
-      if (!cards.length) {
-        empty.style.display = 'block';
-        return;
+    // 旧データ（string配列）→ 新形式へ移行
+    function migrateCardsIfNeeded() {
+      const raw = getCardsRaw();
+      if (raw.length && typeof raw[0] === 'string') {
+        const migrated = raw.map(name => ({
+          id: cryptoRandomId(),
+          name, image: null, createdAt: Date.now()
+        }));
+        setCards(migrated);
+        return migrated;
       }
-      // 新しい順に並べる
-      cards.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      return raw;
+    }
 
-      for (const c of cards) {
-        const imgURL = URL.createObjectURL(c.imageBlob);
-        const item = document.createElement('article');
-        item.className = 'card-item';
-        item.innerHTML = `
-          ${imgURL}
-          <div>
-            <div><strong>${c.name}</strong></div>
-            <div style="color:#6b7280; font-size:.9rem;">${c.filename} / ${c.mime}</div>
-            <div style="color:#6b7280; font-size:.8rem;">${c.createdAt}</div>
-            <div class="card-actions">
-              <button data-id="${c.id}" class="btn-del">削除</button>
-              <a href="${imgURL}">画像DL</a>
-            </div>
-          </div>
-        `;
-        grid.appendChild(item);
+    function getCards() { return migrateCardsIfNeeded(); }
+
+    // ---- utils ----
+    function cryptoRandomId() {
+      // 簡易ID（UUID風）
+      return 'c_' + Math.random().toString(36).slice(2) + Date.now().toString(36);
+    }
+
+    async function fileToCompressedDataURL(file, maxSide = 800, quality = 0.8) {
+      if (!file) return null;
+      // type チェック
+      if (!/^image\\/(png|jpeg)$/.test(file.type)) {
+        alert('PNG/JPEG の画像を選択してください');
+        return null;
       }
 
-      // 削除ボタン
-      grid.querySelectorAll('.btn-del').forEach(btn => {
-        btn.addEventListener('click', async () => {
-          const id = Number(btn.getAttribute('data-id'));
-          await deleteCard(id);
-          renderList();
-        });
+      const blobURL = URL.createObjectURL(file);
+      const img = new Image();
+      img.src = blobURL;
+      await img.decode().catch(() => { /* Safari対策 */ });
+
+      const { width, height } = img;
+      const scale = Math.min(1, maxSide / Math.max(width, height));
+      const w = Math.round(width * scale);
+      const h = Math.round(height * scale);
+
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, w, h);
+
+      URL.revokeObjectURL(blobURL);
+      return canvas.toDataURL('image/jpeg', quality); // PNGでもJPEG保存
+    }
+
+    // ---- renderers ----
+    function renderCards() {
+      const cards = getCards();
+      const recent = document.getElementById('recentCards');
+      const saved = document.getElementById('savedCards');
+      recent.innerHTML = ''; saved.innerHTML = '';
+
+      // 直近5件（新しい順）
+      [...cards].sort((a,b)=>b.createdAt-a.createdAt).slice(0,5).forEach(card => {
+        const li = document.createElement('li');
+        li.className = 'menu-item row';
+        if (card.image) {
+          const img = document.createElement('img');
+          img.className = 'thumb'; img.src = card.image; img.alt = card.name;
+          li.appendChild(img);
+        }
+        const span = document.createElement('span');
+        span.textContent = card.name;
+        li.appendChild(span);
+        recent.appendChild(li);
+      });
+
+      // 全件（登録順）
+      cards.forEach(card => {
+        const li = document.createElement('li');
+        li.className = 'menu-item row';
+        if (card.image) {
+          const img = document.createElement('img');
+          img.className = 'thumb'; img.src = card.image; img.alt = card.name;
+          li.appendChild(img);
+        }
+        const span = document.createElement('span');
+        span.textContent = card.name;
+        li.appendChild(span);
+        saved.appendChild(li);
       });
     }
 
-    /* ===== ③ 送信処理の拡張（保存後に直近カードを表示） ===== */
-    const form   = document.getElementById('cardForm');
-    const nameEl = document.getElementById('cardName');
-    const imgEl  = document.getElementById('cardImage');
-    const status = document.getElementById('status');
-    const preview= document.getElementById('preview');
-
-    imgEl.addEventListener('change', () => {
-      const f = imgEl.files[0];
-      if (f) preview.src = URL.createObjectURL(f);
-      else preview.removeAttribute('src');
+    // ---- preview ----
+    document.getElementById('cardImage').addEventListener('change', async (e) => {
+      const file = e.target.files?.[0];
+      const preview = document.getElementById('imagePreview');
+      preview.innerHTML = '';
+      if (!file) return;
+      const dataURL = await fileToCompressedDataURL(file, 256, 0.8); // プレビュー用は小さめ
+      if (dataURL) {
+        const img = document.createElement('img');
+        img.className = 'thumb';
+        img.src = dataURL;
+        img.alt = 'プレビュー';
+        preview.appendChild(img);
+      }
     });
 
-    form.addEventListener('submit', async (e) => {
+    // ---- form submit ----
+    document.getElementById('cardForm').addEventListener('submit', async (e) => {
       e.preventDefault();
-      status.className = 'status'; status.textContent = '';
-      const name = nameEl.value.trim();
-      const file = imgEl.files[0];
+      const name = document.getElementById('cardName').value.trim();
+      const file = document.getElementById('cardImage').files?.[0] || null;
 
-      if (!name || !file) {
-        status.classList.add('error');
-        status.textContent = 'カード名と画像は必須です。';
+      if (!name) { alert('カード名を入力してください'); return; }
+
+      const cards = getCards();
+      if (cards.some(c => c.name === name)) {
+        alert('同じカード名が既に存在します');
         return;
       }
 
-      try {
-        const id = await saveCard(name, file);
+      const imageDataURL = file ? await fileToCompressedDataURL(file, 800, 0.8) : null;
+      const newCard = { id: cryptoRandomId(), name, image: imageDataURL, createdAt: Date.now() };
 
-        // ★ 直近登録カードを取得して表示（新規追加）
-        const saved = await getCardById(id);
-        renderRecentCard(saved);
+      cards.push(newCard);
+      setCards(cards);
 
-        status.classList.add('success');
-        status.textContent = `保存しました（ID: ${id}）。`;
-
-        // フォームをリセット（プレビューも消す）
-        form.reset();
-        preview.removeAttribute('src');
-
-        // （任意）一覧も更新
-        renderList();
-      } catch (err) {
-        console.error(err);
-        status.classList.add('error');
-        status.textContent = `保存エラー: ${err.message}`;
-      }
+      document.getElementById('cardForm').reset();
+      document.getElementById('imagePreview').innerHTML = '';
+      renderCards();
+      alert('カードを登録しました');
     });
 
-    // 初期表示（ページ読み込み時）
-    renderList();
+    // 初期表示
+    renderCards();
   </script>
 </body>
 </html>
