@@ -49,151 +49,162 @@
 
   <footer class="site-footer"><small>© 2025</small></footer>
 
-  <script>
-    const LS_KEYS = { cards: 'cards' };
 
-    // --- Storage helpers ---
-    function safeParse(json, fallback) {
-      try { return JSON.parse(json); } catch { return fallback; }
-    }
-    function getCardsRaw() {
-      return safeParse(localStorage.getItem(LS_KEYS.cards), []);
-    }
-    function setCards(cards) {
-      try { localStorage.setItem(LS_KEYS.cards, JSON.stringify(cards)); }
-      catch (e) {
-        console.warn('localStorage への保存に失敗:', e);
-        alert('保存領域がいっぱい、またはブラウザ制限で保存できませんでした。画像を外して再試行してください。');
-        // 名前だけでも保存できるように呼び出し元で対応します
-        throw e;
-      }
-    }
+<script>
+  const LS_KEYS = { cards: 'cards' };
 
-    // 旧形式（string[]）→ 新形式（{id,name,image,createdAt}[]）
-    function migrateCardsIfNeeded() {
-      const raw = getCardsRaw();
-      if (raw.length && typeof raw[0] === 'string') {
-        const migrated = raw.map(name => ({
-          id: makeId(), name, image: null, createdAt: Date.now()
-        }));
-        // 変換に失敗しても旧形式で続行
-        try { setCards(migrated); return migrated; } catch { return raw; }
-      }
+  // --- Storage helpers (throwしない設計) ---
+  function safeParse(json, fallback) {
+    try { return JSON.parse(json); } catch { return fallback; }
+  }
+  function getCardsRaw() {
+    return safeParse(localStorage.getItem(LS_KEYS.cards), []);
+  }
+  function setCards(cards) {
+    try {
+      localStorage.setItem(LS_KEYS.cards, JSON.stringify(cards));
+      return true;
+    } catch (e) {
+      console.warn('localStorage setItem 失敗:', e);
+      return false; // throwしない
+    }
+  }
+
+  // 旧形式（string[]）→ 新形式（object[]）
+  function migrateCardsIfNeeded() {
+    const raw = getCardsRaw();
+    if (raw.length && typeof raw[0] === 'string') {
+      const migrated = raw.map(name => ({
+        id: makeId(), name, image: null, createdAt: Date.now()
+      }));
+      if (setCards(migrated)) return migrated;
+      // 失敗したら旧形式をそのまま返す（後段でフォールバック変換）
       return raw;
     }
-    function getCards() { return migrateCardsIfNeeded(); }
+    return raw;
+  }
+  function getCards() { return migrateCardsIfNeeded(); }
 
-    // --- Utils ---
-    function makeId() { return 'c_' + Math.random().toString(36).slice(2) + Date.now().toString(36); }
+  // --- Utils ---
+  function makeId() { return 'c_' + Math.random().toString(36).slice(2) + Date.now().toString(36); }
 
-    function fileToCompressedDataURL(file, maxSide = 800, quality = 0.8) {
-      return new Promise((resolve) => {
-        if (!file) return resolve(null);
-        if (!/^image\/(png|jpeg)$/.test(file.type)) {
-          alert('PNG/JPEG の画像を選択してください');
-          return resolve(null);
-        }
-        const reader = new FileReader();
-        reader.onload = () => {
-          const img = new Image();
-          img.onload = () => {
-            try {
-              const { width, height } = img;
-              const scale = Math.min(1, maxSide / Math.max(width, height));
-              const w = Math.round(width * scale);
-              const h = Math.round(height * scale);
-              const canvas = document.createElement('canvas');
-              canvas.width = w; canvas.height = h;
-              const ctx = canvas.getContext('2d');
-              ctx.drawImage(img, 0, 0, w, h);
-              const dataURL = canvas.toDataURL('image/jpeg', quality);
-              resolve(dataURL);
-            } catch (e) {
-              console.warn('画像の圧縮に失敗:', e);
-              resolve(null);
-            }
-          };
-          img.onerror = () => { resolve(null); };
-          img.src = reader.result;
+  function fileToCompressedDataURL(file, maxSide = 800, quality = 0.8) {
+    return new Promise((resolve) => {
+      if (!file) return resolve(null);
+      if (!/^image\/(png|jpeg)$/.test(file.type)) {
+        alert('PNG/JPEG の画像を選択してください');
+        return resolve(null);
+      }
+      const reader = new FileReader();
+      reader.onload = () => {
+        const img = new Image();
+        img.onload = () => {
+          try {
+            const { width, height } = img;
+            const scale = Math.min(1, maxSide / Math.max(width, height));
+            const w = Math.round(width * scale);
+            const h = Math.round(height * scale);
+            const canvas = document.createElement('canvas');
+            canvas.width = w; canvas.height = h;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, w, h);
+            const dataURL = canvas.toDataURL('image/jpeg', quality);
+            resolve(dataURL);
+          } catch (e) {
+            console.warn('画像圧縮に失敗:', e);
+            resolve(null);
+          }
         };
-        reader.onerror = () => resolve(null);
-        reader.readAsDataURL(file);
-      });
-    }
+        img.onerror = () => resolve(null);
+        img.src = reader.result;
+      };
+      reader.onerror = () => resolve(null);
+      reader.readAsDataURL(file);
+    });
+  }
 
-    // --- Renderers ---
-    function renderCards() {
-      const cards = getCards();
-      const recent = document.getElementById('recentCards');
-      const saved = document.getElementById('savedCards');
-      recent.innerHTML = ''; saved.innerHTML = '';
+  // --- Renderers ---
+  function renderCards() {
+    const cards = getCards();
+    const recent = document.getElementById('recentCards');
+    const saved = document.getElementById('savedCards');
+    recent.innerHTML = ''; saved.innerHTML = '';
 
-      [...cards].sort((a,b)=>b.createdAt-a.createdAt).slice(0,5).forEach(card => {
-        const li = document.createElement('li'); li.className = 'menu-item row';
-        if (card.image) { const img = document.createElement('img'); img.className = 'thumb'; img.src = card.image; img.alt = card.name; li.appendChild(img); }
-        const span = document.createElement('span'); span.textContent = card.name; li.appendChild(span);
-        recent.appendChild(li);
-      });
+    const list = Array.isArray(cards) && typeof cards[0] === 'string'
+      ? cards.map(n => ({ id: makeId(), name: n, image: null, createdAt: Date.now() }))
+      : cards;
 
-      cards.forEach(card => {
-        const li = document.createElement('li'); li.className = 'menu-item row';
-        if (card.image) { const img = document.createElement('img'); img.className = 'thumb'; img.src = card.image; img.alt = card.name; li.appendChild(img); }
-        const span = document.createElement('span'); span.textContent = card.name; li.appendChild(span);
-        saved.appendChild(li);
-      });
-    }
-
-    // --- Preview (軽量) ---
-    document.getElementById('cardImage').addEventListener('change', async (e) => {
-      const file = e.target.files?.[0];
-      const preview = document.getElementById('imagePreview');
-      preview.innerHTML = '';
-      if (!file) return;
-      const dataURL = await fileToCompressedDataURL(file, 256, 0.8);
-      if (dataURL) {
-        const img = document.createElement('img'); img.className = 'thumb'; img.src = dataURL; img.alt = 'プレビュー';
-        preview.appendChild(img);
-      }
+    [...list].sort((a,b)=>b.createdAt-a.createdAt).slice(0,5).forEach(card => {
+      const li = document.createElement('li'); li.className = 'menu-item row';
+      if (card.image) { const img = document.createElement('img'); img.className = 'thumb'; img.src = card.image; img.alt = card.name; li.appendChild(img); }
+      const span = document.createElement('span'); span.textContent = card.name; li.appendChild(span);
+      recent.appendChild(li);
     });
 
-    // --- Submit ---
-    document.getElementById('cardForm').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const name = document.getElementById('cardName').value.trim();
-      const file = document.getElementById('cardImage').files?.[0] || null;
-      if (!name) { alert('カード名を入力してください'); return; }
-
-      let cards = getCards();
-      if (Array.isArray(cards) && typeof cards[0] === 'string') {
-        // 移行失敗時のフォールバック
-        cards = cards.map(n => ({ id: makeId(), name: n, image: null, createdAt: Date.now() }));
-      }
-      if (cards.some(c => c.name === name)) { alert('同じカード名が既に存在します'); return; }
-
-      const imageDataURL = await fileToCompressedDataURL(file, 800, 0.8); // 失敗したら null
-      const newCard = { id: makeId(), name, image: imageDataURL, createdAt: Date.now() };
-
-      try {
-        cards.push(newCard);
-        setCards(cards);
-      } catch (e) {
-        // 画像が原因の容量超過の可能性 → 画像なしで再保存を試みる
-        try {
-          newCard.image = null;
-          cards[cards.length - 1] = newCard; // 置き換え
-          setCards(cards);
-          alert('画像なしでカードを保存しました（容量制限のため）');
-        } catch (e2) {
-          alert('カードの保存に失敗しました。ブラウザの保存領域が制限されている可能性があります。');
-          return;
-        }
-      }
-
-      document.getElementById('cardForm').reset();
-      document.getElementById('imagePreview').innerHTML = '';
-      renderCards();
-      alert('カードを登録しました');
+    list.forEach(card => {
+      const li = document.createElement('li'); li.className = 'menu-item row';
+      if (card.image) { const img = document.createElement('img'); img.className = 'thumb'; img.src = card.image; img.alt = card.name; li.appendChild(img); }
+      const span = document.createElement('span'); span.textContent = card.name; li.appendChild(span);
+      saved.appendChild(li);
     });
+  }
+
+  // --- Preview ---
+  document.getElementById('cardImage').addEventListener('change', async (e) => {
+    const file = e.target.files?.[0];
+    const preview = document.getElementById('imagePreview');
+    preview.innerHTML = '';
+    if (!file) return;
+    const dataURL = await fileToCompressedDataURL(file, 256, 0.8);
+    if (dataURL) {
+      const img = document.createElement('img');
+      img.className = 'thumb';
+      img.src = dataURL; img.alt = 'プレビュー';
+      preview.appendChild(img);
+    }
+  });
+
+  // --- Submit ---
+  document.getElementById('cardForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    console.log('[card] submit fired'); // 発火確認
+    const name = document.getElementById('cardName').value.trim();
+    const file = document.getElementById('cardImage').files?.[0] || null;
+    if (!name) { alert('カード名を入力してください'); return; }
+
+    let cards = getCards();
+    // 旧形式フォールバック
+    if (Array.isArray(cards) && typeof cards[0] === 'string') {
+      cards = cards.map(n => ({ id: makeId(), name: n, image: null, createdAt: Date.now() }));
+    }
+    if (cards.some(c => c.name === name)) { alert('同じカード名が既に存在します'); return; }
+
+    // 画像が失敗しても名前だけは保存
+    const imageDataURL = await fileToCompressedDataURL(file, 800, 0.8); // null可
+    const newCard = { id: makeId(), name, image: imageDataURL, createdAt: Date.now() };
+    cards.push(newCard);
+
+    if (!setCards(cards)) {
+      // 容量等で失敗 → 画像なしで再試行
+      newCard.image = null;
+      cards[cards.length - 1] = newCard;
+      if (!setCards(cards)) {
+        alert('保存に失敗しました（ブラウザの保存領域/モードの制限の可能性）。画像を外すか、別ブラウザでお試しください。');
+        return;
+      } else {
+        alert('画像なしでカードを保存しました（容量制限のため）');
+      }
+    }
+
+    document.getElementById('cardForm').reset();
+    document.getElementById('imagePreview').innerHTML = '';
+    renderCards();
+    alert('カードを登録しました');
+  });
+
+  // 初期表示
+  renderCards();
+
 
     // 初期表示
     renderCards();
