@@ -3,20 +3,272 @@
 <html lang="ja">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>アルバム登録</title>
-  assets/css/styles.css
+  <link rel="stylesheet" href="./assets/css/styles.css">
+  <style>
+    .grid-two { display:grid; gap:1.5rem; grid-template-columns: 1fr 1fr; }
+    .card-box { background: var(--card); padding:1rem; border-radius:12px; }
+    .inline { display:flex; gap:0.75rem; align-items:center; }
+    .pill {
+      display:inline-flex; align-items:center; gap:0.5rem;
+      padding:0.5rem 0.75rem; border-radius:999px; background:#eef2ff;
+    }
+    .pill button { border:none; background:transparent; cursor:pointer; }
+    .thumb { width:48px; height:48px; object-fit:cover; border-radius:8px; }
+  </style>
 </head>
 <body>
-  <header class="site-header" role="banner">
+  <header class="site-header">
     <h1 class="site-title">アルバム登録</h1>
+    <nav><a href="./index.html">メニューに戻る</a></nav>
   </header>
-  <main id="main" class="container" role="main">
-    <p>ここにアルバム登録フォームを実装していきます。</p>
-    <p>index.htmlメニューに戻る</a></p>
+
+  <main class="container">
+    <div class="grid-two">
+      <section class="card-box">
+        <h2>アルバム作成</h2>
+
+        <label class="inline">
+          アルバム名
+          <input type="text" id="albumName" placeholder="例：お気に入りセット" style="flex:1" />
+        </label>
+
+        <div class="inline" style="margin-top:0.75rem;">
+          <label for="cardSelect">カードを選択：</label>
+          <select id="cardSelect" style="flex:1"></select>
+          <button id="addBtn" class="menu-button" type="button">追加</button>
+        </div>
+
+        <p style="color:var(--muted)">最大 20 件まで追加できます。</p>
+
+        <h3>アルバム候補</h3>
+        <div id="albumItems" aria-live="polite"></div>
+
+        <br />
+        <button id="saveAlbum" class="menu-button" type="button">アルバムを保存</button>
+      </section>
+
+      <section class="card-box">
+        <h2>保存済みアルバム</h2>
+        <ul id="savedAlbums" class="menu-list"></ul>
+      </section>
+    </div>
   </main>
-  <footer class="site-footer" role="contentinfo">
-    <small>&copy; 2025</small>
-  </footer>
+
+  <footer class="site-footer"><small>© 2025</small></footer>
+
+  <script>
+    const LS_KEYS = { cards: 'cards', albums: 'albums' };
+    const MAX_ITEMS = 20;
+
+    // ---- storage helpers ----
+    function getCardsRaw() {
+      try { return JSON.parse(localStorage.getItem(LS_KEYS.cards)) || []; }
+      catch { return []; }
+    }
+    function setCards(cards) { localStorage.setItem(LS_KEYS.cards, JSON.stringify(cards)); }
+    function migrateCardsIfNeeded() {
+      const raw = getCardsRaw();
+      if (raw.length && typeof raw[0] === 'string') {
+        const migrated = raw.map(name => ({
+          id: cryptoRandomId(),
+          name, image: null, createdAt: Date.now()
+        }));
+        setCards(migrated);
+        return migrated;
+      }
+      return raw;
+    }
+    function getCards() { return migrateCardsIfNeeded(); }
+
+    function getAlbums() {
+      try { return JSON.parse(localStorage.getItem(LS_KEYS.albums)) || []; }
+      catch { return []; }
+    }
+    function setAlbums(albums) {
+      localStorage.setItem(LS_KEYS.albums, JSON.stringify(albums));
+    }
+
+    // ---- utils ----
+    function cryptoRandomId() {
+      return 'c_' + Math.random().toString(36).slice(2) + Date.now().toString(36);
+    }
+
+    // ---- UI refs ----
+    const cardSelect = document.getElementById('cardSelect');
+    const addBtn = document.getElementById('addBtn');
+    const albumItemsEl = document.getElementById('albumItems');
+    const saveAlbumBtn = document.getElementById('saveAlbum');
+    const albumNameEl = document.getElementById('albumName');
+    const savedAlbumsEl = document.getElementById('savedAlbums');
+
+    // ---- state ----
+    const state = {
+      cards: [],       // Card[]
+      albumItemIds: [] // string[] (card.id)
+    };
+
+    // ---- render select ----
+    function renderCardSelect() {
+      cardSelect.innerHTML = '';
+      if (state.cards.length === 0) {
+        const opt = document.createElement('option');
+        opt.textContent = '（登録されたカードがありません）';
+        opt.value = '';
+        cardSelect.appendChild(opt);
+        addBtn.disabled = true;
+        return;
+      }
+      addBtn.disabled = false;
+      state.cards.forEach(card => {
+        const opt = document.createElement('option');
+        opt.value = card.id;
+        opt.textContent = card.name;
+        cardSelect.appendChild(opt);
+      });
+    }
+
+    // ---- album items (pills with thumbnail) ----
+    function renderAlbumItems() {
+      albumItemsEl.innerHTML = '';
+      if (state.albumItemIds.length === 0) {
+        albumItemsEl.textContent = 'まだアルバムにカードが追加されていません。';
+        return;
+      }
+      state.albumItemIds.forEach(id => {
+        const card = state.cards.find(c => c.id === id);
+        const wrap = document.createElement('span');
+        wrap.className = 'pill';
+
+        if (card?.image) {
+          const img = document.createElement('img');
+          img.className = 'thumb'; img.src = card.image; img.alt = card.name;
+          wrap.appendChild(img);
+        }
+        const label = document.createElement('span');
+        label.textContent = card ? card.name : '(不明なカード)';
+        wrap.appendChild(label);
+
+        const rm = document.createElement('button');
+        rm.title = '削除'; rm.textContent = '×';
+        rm.addEventListener('click', () => {
+          state.albumItemIds = state.albumItemIds.filter(x => x !== id);
+          renderAlbumItems();
+        });
+        wrap.appendChild(rm);
+
+        albumItemsEl.appendChild(wrap);
+        albumItemsEl.appendChild(document.createTextNode(' '));
+      });
+    }
+
+    // ---- saved albums ----
+    function renderSavedAlbums() {
+      savedAlbumsEl.innerHTML = '';
+      const albums = getAlbums();
+      if (albums.length === 0) {
+        const li = document.createElement('li');
+        li.className = 'menu-item';
+        li.textContent = 'まだ保存されたアルバムはありません。';
+        savedAlbumsEl.appendChild(li);
+        return;
+      }
+      albums.forEach((alb, idx) => {
+        const li = document.createElement('li');
+        li.className = 'menu-item';
+
+        const title = document.createElement('strong');
+        title.textContent = alb.name;
+        li.appendChild(title);
+
+        const details = document.createElement('div');
+        details.style.marginTop = '0.5rem';
+        details.textContent = `カード数：${alb.items.length} 件`;
+        li.appendChild(details);
+
+        const thumbs = document.createElement('div');
+        thumbs.style.marginTop = '0.25rem';
+        alb.items.forEach(id => {
+          const card = state.cards.find(c => c.id === id);
+          const span = document.createElement('span');
+          span.className = 'pill';
+          if (card?.image) {
+            const img = document.createElement('img');
+            img.className = 'thumb'; img.src = card.image; img.alt = card.name;
+            span.appendChild(img);
+          }
+          const label = document.createElement('span');
+          label.textContent = card ? card.name : '(不明なカード)';
+          span.appendChild(label);
+          thumbs.appendChild(span);
+          thumbs.appendChild(document.createTextNode(' '));
+        });
+        li.appendChild(thumbs);
+
+        const del = document.createElement('button');
+        del.className = 'menu-button';
+        del.style.marginTop = '0.75rem';
+        del.textContent = '削除';
+        del.addEventListener('click', () => {
+          const next = getAlbums().filter((_, i) => i !== idx);
+          setAlbums(next);
+          renderSavedAlbums();
+        });
+        li.appendChild(del);
+
+        savedAlbumsEl.appendChild(li);
+      });
+    }
+
+    // ---- add to album ----
+    addBtn.addEventListener('click', () => {
+      const id = cardSelect.value;
+      if (!id) return;
+      if (state.albumItemIds.includes(id)) {
+        alert('同じカードは重複追加できません');
+        return;
+      }
+      if (state.albumItemIds.length >= MAX_ITEMS) {
+        alert(`アルバムには最大 ${MAX_ITEMS} 件まで追加できます`);
+        return;
+      }
+      state.albumItemIds.push(id);
+      renderAlbumItems();
+    });
+
+    // ---- save album ----
+    saveAlbumBtn.addEventListener('click', () => {
+      const name = albumNameEl.value.trim();
+      if (!name) { alert('アルバム名を入力してください'); return; }
+      if (state.albumItemIds.length === 0) {
+        alert('アルバムにカードを追加してください'); return;
+      }
+      const albums = getAlbums();
+      const existsIdx = albums.findIndex(a => a.name === name);
+      if (existsIdx >= 0) {
+        if (!confirm('同名のアルバムが存在します。上書きしますか？')) return;
+        albums[existsIdx] = { name, items: state.albumItemIds.slice() };
+      } else {
+        albums.push({ name, items: state.albumItemIds.slice() });
+      }
+      setAlbums(albums);
+      renderSavedAlbums();
+
+      // クリア
+      state.albumItemIds = [];
+      renderAlbumItems();
+      albumNameEl.value = '';
+      alert('アルバムを保存しました');
+    });
+
+    // ---- init ----
+    function init() {
+      state.cards = getCards();
+      renderCardSelect();
+      renderAlbumItems();
+      renderSavedAlbums();
+    }
+    init();
+  </script>
 </body>
 </html>
